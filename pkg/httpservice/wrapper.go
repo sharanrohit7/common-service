@@ -32,24 +32,17 @@ func Wrap(handlerName string, fn HandlerFunc) gin.HandlerFunc {
 		)
 
 		// Execute handler
-		err := fn(c)
-
-		// Calculate latency
-		latency := time.Since(start)
-
-		// Handle error if any
-		if err != nil {
-			logger.Error("Handler failed",
-				logging.NewField("handler", handlerName),
-				logging.NewField("latency_ms", latency.Milliseconds()),
-				logging.NewField("error", err),
-			)
-			HandleError(c, err)
+		if err := fn(c); err != nil {
+			// Set error in context for ErrorHandlerMiddleware to handle
+			// Don't log here - ErrorHandlerMiddleware will log it
+			c.Error(err)
+			c.Abort()
 			return
 		}
 
 		// Log successful completion
-		logger.Debug("Handler completed",
+		latency := time.Since(start)
+		logger.Info("Handler completed",
 			logging.NewField("handler", handlerName),
 			logging.NewField("latency_ms", latency.Milliseconds()),
 		)

@@ -1,8 +1,6 @@
 package logging
 
 import (
-	"os"
-
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -52,29 +50,24 @@ func NewLogger(level, format string) (Logger, error) {
 		zapLevel = zapcore.InfoLevel
 	}
 
-	var encoderConfig zapcore.EncoderConfig
-	if format == "text" {
-		encoderConfig = zap.NewDevelopmentEncoderConfig()
-		encoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	} else {
-		encoderConfig = zap.NewProductionEncoderConfig()
-		encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	// Create encoder config
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+
+	config := zap.NewProductionConfig()
+	config.Level = zap.NewAtomicLevelAt(zapLevel)
+	config.Encoding = format
+	config.EncoderConfig = encoderConfig
+
+	// Disable caller and stacktrace (too verbose)
+	config.DisableCaller = true
+	config.DisableStacktrace = true
+
+	// Build logger
+	logger, err := config.Build()
+	if err != nil {
+		return nil, err
 	}
-
-	var encoder zapcore.Encoder
-	if format == "text" {
-		encoder = zapcore.NewConsoleEncoder(encoderConfig)
-	} else {
-		encoder = zapcore.NewJSONEncoder(encoderConfig)
-	}
-
-	core := zapcore.NewCore(
-		encoder,
-		zapcore.AddSync(os.Stdout),
-		zapLevel,
-	)
-
-	logger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
 
 	return &zapLogger{logger: logger}, nil
 }

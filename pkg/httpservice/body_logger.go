@@ -61,14 +61,12 @@ func BodyLoggingMiddleware(logger logging.Logger) gin.HandlerFunc {
 			json.Unmarshal(responseBodyWriter.body.Bytes(), &responseBodyJSON)
 		}
 
-		// Build comprehensive log fields
+		// Build simplified log fields (ONLY essentials)
 		fields := []logging.Field{
 			logging.NewField("method", c.Request.Method),
 			logging.NewField("path", c.Request.URL.Path),
 			logging.NewField("status", c.Writer.Status()),
 			logging.NewField("latency_ms", latency.Milliseconds()),
-			logging.NewField("ip", c.ClientIP()),
-			logging.NewField("user_agent", c.Request.UserAgent()),
 		}
 
 		// Add request ID
@@ -76,28 +74,10 @@ func BodyLoggingMiddleware(logger logging.Logger) gin.HandlerFunc {
 			fields = append(fields, logging.NewField("request_id", requestID))
 		}
 
-		// Add query parameters if present
-		if len(c.Request.URL.RawQuery) > 0 {
-			fields = append(fields, logging.NewField("query_params", c.Request.URL.RawQuery))
+		// Add trace ID
+		if traceID, exists := c.Get("trace_id"); exists {
+			fields = append(fields, logging.NewField("trace_id", traceID))
 		}
-
-		// Add path parameters if present
-		if len(c.Params) > 0 {
-			params := make(map[string]string)
-			for _, param := range c.Params {
-				params[param.Key] = param.Value
-			}
-			fields = append(fields, logging.NewField("path_params", params))
-		}
-
-		// Add request headers (excluding sensitive ones)
-		headers := make(map[string]string)
-		for key, values := range c.Request.Header {
-			if len(values) > 0 {
-				headers[key] = values[0]
-			}
-		}
-		fields = append(fields, logging.NewField("request_headers", headers))
 
 		// Add request body
 		if requestBodyJSON != nil {
@@ -112,9 +92,6 @@ func BodyLoggingMiddleware(logger logging.Logger) gin.HandlerFunc {
 		} else if responseBodyWriter.body.Len() > 0 {
 			fields = append(fields, logging.NewField("response_body_raw", responseBodyWriter.body.String()))
 		}
-
-		// Add response size
-		fields = append(fields, logging.NewField("response_size_bytes", responseBodyWriter.body.Len()))
 
 		// Log based on status code
 		if c.Writer.Status() >= 500 {
