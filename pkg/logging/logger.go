@@ -1,7 +1,8 @@
 package logging
 
 import (
-	"os"
+	"context"
+	"fmt"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -14,6 +15,19 @@ type Logger interface {
 	Warn(msg string, fields ...Field)
 	Error(msg string, fields ...Field)
 	Fatal(msg string, fields ...Field)
+
+	DebugWithContext(ctx context.Context, msg string, fields ...Field)
+	InfoWithContext(ctx context.Context, msg string, fields ...Field)
+	WarnWithContext(ctx context.Context, msg string, fields ...Field)
+	ErrorWithContext(ctx context.Context, msg string, fields ...Field)
+	FatalWithContext(ctx context.Context, msg string, fields ...Field)
+
+	DebugfWithContext(ctx context.Context, format string, args ...interface{})
+	InfofWithContext(ctx context.Context, format string, args ...interface{})
+	WarnfWithContext(ctx context.Context, format string, args ...interface{})
+	ErrorfWithContext(ctx context.Context, format string, args ...interface{})
+	FatalfWithContext(ctx context.Context, format string, args ...interface{})
+
 	With(fields ...Field) Logger
 	WithError(err error) Logger
 }
@@ -52,29 +66,24 @@ func NewLogger(level, format string) (Logger, error) {
 		zapLevel = zapcore.InfoLevel
 	}
 
-	var encoderConfig zapcore.EncoderConfig
-	if format == "text" {
-		encoderConfig = zap.NewDevelopmentEncoderConfig()
-		encoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	} else {
-		encoderConfig = zap.NewProductionEncoderConfig()
-		encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	// Create encoder config
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+
+	config := zap.NewProductionConfig()
+	config.Level = zap.NewAtomicLevelAt(zapLevel)
+	config.Encoding = format
+	config.EncoderConfig = encoderConfig
+
+	// Disable caller and stacktrace (too verbose)
+	config.DisableCaller = true
+	config.DisableStacktrace = true
+
+	// Build logger
+	logger, err := config.Build()
+	if err != nil {
+		return nil, err
 	}
-
-	var encoder zapcore.Encoder
-	if format == "text" {
-		encoder = zapcore.NewConsoleEncoder(encoderConfig)
-	} else {
-		encoder = zapcore.NewJSONEncoder(encoderConfig)
-	}
-
-	core := zapcore.NewCore(
-		encoder,
-		zapcore.AddSync(os.Stdout),
-		zapLevel,
-	)
-
-	logger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
 
 	return &zapLogger{logger: logger}, nil
 }
@@ -112,6 +121,70 @@ func (z *zapLogger) Error(msg string, fields ...Field) {
 // Fatal logs a fatal message and exits.
 func (z *zapLogger) Fatal(msg string, fields ...Field) {
 	z.logger.Fatal(msg, z.fieldsToZap(fields)...)
+}
+
+// DebugWithContext logs a debug message with context.
+func (z *zapLogger) DebugWithContext(ctx context.Context, msg string, fields ...Field) {
+	z.logger.Debug(msg, z.fieldsToZap(z.enrichFields(ctx, fields))...)
+}
+
+// InfoWithContext logs an info message with context.
+func (z *zapLogger) InfoWithContext(ctx context.Context, msg string, fields ...Field) {
+	z.logger.Info(msg, z.fieldsToZap(z.enrichFields(ctx, fields))...)
+}
+
+// WarnWithContext logs a warning message with context.
+func (z *zapLogger) WarnWithContext(ctx context.Context, msg string, fields ...Field) {
+	z.logger.Warn(msg, z.fieldsToZap(z.enrichFields(ctx, fields))...)
+}
+
+// ErrorWithContext logs an error message with context.
+func (z *zapLogger) ErrorWithContext(ctx context.Context, msg string, fields ...Field) {
+	z.logger.Error(msg, z.fieldsToZap(z.enrichFields(ctx, fields))...)
+}
+
+// FatalWithContext logs a fatal message with context and exits.
+func (z *zapLogger) FatalWithContext(ctx context.Context, msg string, fields ...Field) {
+	z.logger.Fatal(msg, z.fieldsToZap(z.enrichFields(ctx, fields))...)
+}
+
+// DebugfWithContext logs a formatted debug message with context.
+func (z *zapLogger) DebugfWithContext(ctx context.Context, format string, args ...interface{}) {
+	z.logger.Debug(fmt.Sprintf(format, args...), z.fieldsToZap(z.enrichFields(ctx, nil))...)
+}
+
+// InfofWithContext logs a formatted info message with context.
+func (z *zapLogger) InfofWithContext(ctx context.Context, format string, args ...interface{}) {
+	z.logger.Info(fmt.Sprintf(format, args...), z.fieldsToZap(z.enrichFields(ctx, nil))...)
+}
+
+// WarnfWithContext logs a formatted warning message with context.
+func (z *zapLogger) WarnfWithContext(ctx context.Context, format string, args ...interface{}) {
+	z.logger.Warn(fmt.Sprintf(format, args...), z.fieldsToZap(z.enrichFields(ctx, nil))...)
+}
+
+// ErrorfWithContext logs a formatted error message with context.
+func (z *zapLogger) ErrorfWithContext(ctx context.Context, format string, args ...interface{}) {
+	z.logger.Error(fmt.Sprintf(format, args...), z.fieldsToZap(z.enrichFields(ctx, nil))...)
+}
+
+// FatalfWithContext logs a formatted fatal message with context and exits.
+func (z *zapLogger) FatalfWithContext(ctx context.Context, format string, args ...interface{}) {
+	z.logger.Fatal(fmt.Sprintf(format, args...), z.fieldsToZap(z.enrichFields(ctx, nil))...)
+}
+
+// enrichFields adds context fields to the log fields.
+func (z *zapLogger) enrichFields(ctx context.Context, fields []Field) []Field {
+	if ctx == nil {
+		return fields
+	}
+	// Try standard "request_id" key and "x-request-id"
+	if reqID, ok := ctx.Value("request_id").(string); ok && reqID != "" {
+		fields = append(fields, NewField("request_id", reqID))
+	} else if reqID, ok := ctx.Value("x-request-id").(string); ok && reqID != "" {
+		fields = append(fields, NewField("x-request-id", reqID))
+	}
+	return fields
 }
 
 // With creates a new logger with additional fields.

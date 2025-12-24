@@ -1,6 +1,7 @@
 package httpservice
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -21,6 +22,18 @@ func (m *MockLogger) Warn(msg string, fields ...logging.Field)    {}
 func (m *MockLogger) Fatal(msg string, fields ...logging.Field)   {}
 func (m *MockLogger) With(fields ...logging.Field) logging.Logger { return m }
 func (m *MockLogger) WithError(err error) logging.Logger          { return m }
+
+func (m *MockLogger) DebugWithContext(ctx context.Context, msg string, fields ...logging.Field) {}
+func (m *MockLogger) InfoWithContext(ctx context.Context, msg string, fields ...logging.Field)  {}
+func (m *MockLogger) WarnWithContext(ctx context.Context, msg string, fields ...logging.Field)  {}
+func (m *MockLogger) ErrorWithContext(ctx context.Context, msg string, fields ...logging.Field) {}
+func (m *MockLogger) FatalWithContext(ctx context.Context, msg string, fields ...logging.Field) {}
+
+func (m *MockLogger) DebugfWithContext(ctx context.Context, format string, args ...interface{}) {}
+func (m *MockLogger) InfofWithContext(ctx context.Context, format string, args ...interface{})  {}
+func (m *MockLogger) WarnfWithContext(ctx context.Context, format string, args ...interface{})  {}
+func (m *MockLogger) ErrorfWithContext(ctx context.Context, format string, args ...interface{}) {}
+func (m *MockLogger) FatalfWithContext(ctx context.Context, format string, args ...interface{}) {}
 
 func TestRateLimitMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
