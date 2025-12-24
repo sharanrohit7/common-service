@@ -25,11 +25,22 @@ func FromContext(ctx context.Context) Logger {
 // noOpLogger is a logger that does nothing (useful for tests or when logger is not available).
 type noOpLogger struct{}
 
-func (n *noOpLogger) Debug(msg string, fields ...Field)                {}
-func (n *noOpLogger) Info(msg string, fields ...Field)                 {}
-func (n *noOpLogger) Warn(msg string, fields ...Field)                {}
-func (n *noOpLogger) Error(msg string, fields ...Field)               {}
-func (n *noOpLogger) Fatal(msg string, fields ...Field)               {}
-func (n *noOpLogger) With(fields ...Field) Logger                      { return n }
-func (n *noOpLogger) WithError(err error) Logger                       { return n }
+func (n *noOpLogger) Debug(msg string, fields ...Field) {}
+func (n *noOpLogger) Info(msg string, fields ...Field)  {}
+func (n *noOpLogger) Warn(msg string, fields ...Field)  {}
+func (n *noOpLogger) Error(msg string, fields ...Field) {}
+func (n *noOpLogger) Fatal(msg string, fields ...Field) {}
 
+func (n *noOpLogger) DebugWithContext(ctx context.Context, msg string, fields ...Field) {}
+func (n *noOpLogger) InfoWithContext(ctx context.Context, msg string, fields ...Field)  {}
+func (n *noOpLogger) WarnWithContext(ctx context.Context, msg string, fields ...Field)  {}
+func (n *noOpLogger) ErrorWithContext(ctx context.Context, msg string, fields ...Field) {}
+func (n *noOpLogger) FatalWithContext(ctx context.Context, msg string, fields ...Field) {}
+
+func (n *noOpLogger) DebugfWithContext(ctx context.Context, format string, args ...interface{}) {}
+func (n *noOpLogger) InfofWithContext(ctx context.Context, format string, args ...interface{})  {}
+func (n *noOpLogger) WarnfWithContext(ctx context.Context, format string, args ...interface{})  {}
+func (n *noOpLogger) ErrorfWithContext(ctx context.Context, format string, args ...interface{}) {}
+func (n *noOpLogger) FatalfWithContext(ctx context.Context, format string, args ...interface{}) {}
+func (n *noOpLogger) With(fields ...Field) Logger                                               { return n }
+func (n *noOpLogger) WithError(err error) Logger                                                { return n }

@@ -72,12 +72,7 @@ func SlowRequestMiddleware(
 				errorMsg = c.Errors.String()
 			}
 
-			logger.Error("Service error detected",
-				logging.NewField("path", path),
-				logging.NewField("status_code", statusCode),
-				logging.NewField("error", errorMsg),
-			)
-
+			// Only send telemetry, don't log (ErrorHandlerMiddleware already logged it)
 			if telemetryClient != nil {
 				telemetryClient.RecordError(c.Request.Context(), path, errorMsg, statusCode, traceID, requestID)
 			}
@@ -90,4 +85,3 @@ func SlowRequestMiddleware(
 		}
 	}
 }
-
